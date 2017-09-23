@@ -672,6 +672,45 @@ end
 
 @test sprint(show, Main) == "Main"
 
+# static_show
+
+function static_shown(x)
+    p = Pipe()
+    Base.link_pipe(p; julia_only_read=true, julia_only_write=true)
+    ccall(:jl_static_show, Void, (Ptr{Void}, Any), p.in, x)
+    @async close(p.in)
+    return readstring(p.out)
+end
+
+# Test for PR 17803
+@test static_shown(Int128(-1)) == "Int128(0xffffffffffffffffffffffffffffffff)"
+
+# PR #22160
+@test static_shown(:aa) == ":aa"
+@test static_shown(:+) == ":+"
+@test static_shown(://) == "://"
+@test static_shown(://=) == "://="
+@test static_shown(Symbol("")) == "Symbol(\"\")"
+@test static_shown(Symbol("a/b")) == "Symbol(\"a/b\")"
+@test static_shown(Symbol("a-b")) == "Symbol(\"a-b\")"
+@test static_shown(UnionAll) == "UnionAll"
+
+@test static_shown(QuoteNode(:x)) == ":(:x)"
+
+# Test @show
+let fname = tempname()
+    try
+        open(fname, "w") do fout
+            redirect_stdout(fout) do
+                @show zeros(2, 2)
+            end
+        end
+        @test read(fname, String) == "zeros(2, 2) = 2×2 Array{Float64,2}:\n 0.0  0.0\n 0.0  0.0\n"
+    finally
+        rm(fname, force=true)
+    end
+end
+
 struct f_with_params{t} <: Function
 end
 
