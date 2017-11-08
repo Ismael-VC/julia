@@ -114,6 +114,11 @@ jl_value_t *jl_resolve_globals(jl_value_t *expr, jl_module_t *module, jl_svec_t 
                 e->head == primtype_sym || e->head == module_sym) {
                 i++;
             }
+            // NOTE: we would normally check this during lowering, but $ exprs need to temporarily
+            // exist inside methods for out-of-scope method definitions.
+            if (e->head == dollar_sym)
+                jl_error("syntax: \"$\" expression outside quote");
+
             for (; i < nargs; i++) {
                 // TODO: this should be making a copy, not mutating the source
                 jl_exprargset(e, i, jl_resolve_globals(jl_exprarg(e, i), module, sparam_vals));
